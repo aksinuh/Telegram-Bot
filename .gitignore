@@ -1,0 +1,10 @@
+.env
+
+# Ignore Python bytecode and cache
+__pycache__/
+
+# Ignore virtual environment
+venv/
+
+# Ignore user data files
+user_ids.json
