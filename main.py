@@ -16,6 +16,7 @@ from telegram.ext import (
 from decimal import Decimal
 from tracker import create_crypto_compare_client, get_crypto_price
 from dotenv import load_dotenv
+from threading import Lock
 
 # .env faylını yüklə
 load_dotenv()
@@ -26,9 +27,7 @@ crypto_compare_client = create_crypto_compare_client(os.getenv("CRYPTOCOMPARE_AP
 # Logging
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
-
 ADMIN_ID = 1724281113  # Adminin Telegram ID-sini buraya yazın
-
 
 # Faylları idarəetmə funksiyaları
 def load_user_ids():
@@ -49,6 +48,9 @@ def initialize_user_file():
 
 initialize_user_file()
 
+# Global state üçün lock yaradılır
+lock = Lock()
+is_start_running = False
 
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.effective_user.id != ADMIN_ID:
@@ -65,6 +67,7 @@ async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT
         message = update.message.text
         user_ids = load_user_ids()
 
+        # Növbə ilə mesaj göndəririk
         for user_id in user_ids:
             try:
                 await context.bot.send_message(user_id, message)
@@ -78,43 +81,54 @@ async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT
 
 # /start komandasını idarə edən funksiya
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Əgər broadcast rejimi aktivdirsə, start funksiyasını keçirik
-    if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
-        return  # Əgər broadcast aktivdirsə, start funksiyasını icra etməmək
+    # Global lock ilə start funksiyasını sinxronlaşdırırıq
+    global is_start_running
+    with lock:  # Yalnız bir funksiya işləyəcək
+        if is_start_running:
+            await update.message.reply_text("Start funksiyası artıq çalışır!")
+            return
+        is_start_running = True
 
-    
-    user_id = update.effective_user.id
-    user_ids = load_user_ids()
+    try:
+        # Əgər broadcast rejimi aktivdirsə, start funksiyasını keçirik
+        if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
+            return  # Əgər broadcast aktivdirsə, start funksiyasını icra etməmək
 
-    # İstifadəçi ID-sini yalnız bir dəfə əlavə edirik
-    if user_id not in user_ids:
-        user_ids.append(user_id)
-        save_user_ids(user_ids)  # Faylı avtomatik olaraq yeniləyirik
+        user_id = update.effective_user.id
+        user_ids = load_user_ids()
 
-    # Botu başlatmaq üçün istifadəçinin qarşısında seçimlər
-    keyboard = [
-        [InlineKeyboardButton("BTCUSDT", callback_data="BTCUSDT"),
-         InlineKeyboardButton("ETHUSDT", callback_data="ETHUSDT")],
-        [InlineKeyboardButton("BNBUSDT", callback_data="BNBUSDT"),
-         InlineKeyboardButton("XRPUSDT", callback_data="XRPUSDT")],
-        [InlineKeyboardButton("ADAUSDT", callback_data="ADAUSDT"),
-         InlineKeyboardButton("DOGEUSDT", callback_data="DOGEUSDT")],
-        [InlineKeyboardButton("SOLUSDT", callback_data="SOLUSDT"),
-         InlineKeyboardButton("XLMUSDT", callback_data="XLMUSDT")],
-        [InlineKeyboardButton("PEPEUSDT", callback_data="PEPEUSDT"),
-         InlineKeyboardButton("PENGUUSDT", callback_data="PENGUUSDT")],
-        [InlineKeyboardButton("VANAUSDT", callback_data="VANAUSDT"),
-         InlineKeyboardButton("MOVEUSDT", callback_data="MOVEUSDT")]
-    ]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    effective_message = update.effective_message
-    if effective_message:
-        await effective_message.reply_text(
-            "Xoş gəlmisiniz!😊 Hansı kripto valyutanı izləmək istəyirsiniz?🕵️‍♂️",
-            reply_markup=reply_markup
-        )
-        await asyncio.sleep(2)
-        
+        # İstifadəçi ID-sini yalnız bir dəfə əlavə edirik
+        if user_id not in user_ids:
+            user_ids.append(user_id)
+            save_user_ids(user_ids)  # Faylı avtomatik olaraq yeniləyirik
+
+        # Botu başlatmaq üçün istifadəçinin qarşısında seçimlər
+        keyboard = [
+            [InlineKeyboardButton("BTCUSDT", callback_data="BTCUSDT"),
+             InlineKeyboardButton("ETHUSDT", callback_data="ETHUSDT")],
+            [InlineKeyboardButton("BNBUSDT", callback_data="BNBUSDT"),
+             InlineKeyboardButton("XRPUSDT", callback_data="XRPUSDT")],
+            [InlineKeyboardButton("ADAUSDT", callback_data="ADAUSDT"),
+             InlineKeyboardButton("DOGEUSDT", callback_data="DOGEUSDT")],
+            [InlineKeyboardButton("SOLUSDT", callback_data="SOLUSDT"),
+             InlineKeyboardButton("XLMUSDT", callback_data="XLMUSDT")],
+            [InlineKeyboardButton("PEPEUSDT", callback_data="PEPEUSDT"),
+             InlineKeyboardButton("PENGUUSDT", callback_data="PENGUUSDT")],
+            [InlineKeyboardButton("VANAUSDT", callback_data="VANAUSDT"),
+             InlineKeyboardButton("MOVEUSDT", callback_data="MOVEUSDT")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        effective_message = update.effective_message
+        if effective_message:
+            await effective_message.reply_text(
+                "Xoş gəlmisiniz!😊 Hansı kripto valyutanı izləmək istəyirsiniz?🕵️‍♂️",
+                reply_markup=reply_markup
+            )
+            await asyncio.sleep(2)
+    finally:
+        with lock:
+            is_start_running = False  # Start funksiyası bitdi
+
 # Qiymət izləmə funksiyası
 async def track_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -166,9 +180,9 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
         await asyncio.sleep(2)
         
-        # İşin hər 1 dəqiqədə bir təkrarlanmasını təmin edirik
+        # İşin hər 10 saniyədə bir təkrarlanmasını təmin edirik
         context.job_queue.run_repeating(
-            check_price, interval=10,  # 1 dəqiqə aralıqla sorğu göndəriləcək
+            check_price, interval=10,  # 10 saniyə aralıqla sorğu göndəriləcək
             first=0,  # dərhal başlasın
             data={
                 'chat_id': update.effective_chat.id,
@@ -187,6 +201,7 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup = InlineKeyboardMarkup(keyboard)
         await query.message.reply_text("İzləmək istədiyiniz başqa bir valyuta var?🕵️‍♂️", reply_markup=reply_markup)
         await asyncio.sleep(1)
+
         
 async def handle_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -292,10 +307,8 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
     application.add_handler(CommandHandler("current", current))
-       # Qiymət hədəfi təyini (yalnız start-dan sonra işləyəcək)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_threshold))
-    # Broadcast mesajları (yalnız broadcast başladıqdan sonra işləyəcək)
-    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast_message)) # Broadcast mesajları
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_threshold))  # Qiymət hədəfi təyini
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_broadcast_message))  # Broadcast mesajları
     application.add_handler(CommandHandler("stop", stop_command))
     application.run_polling()
 
