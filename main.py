@@ -1,22 +1,12 @@
+
 import os
 import asyncio
-import time
 import logging
 import json
-
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import (
-    Application,
-    CommandHandler,
-    CallbackQueryHandler,
-    MessageHandler,
-    filters,
-    ContextTypes,
-)
-from decimal import Decimal
-from tracker import create_crypto_compare_client, get_crypto_price
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, MessageHandler, filters, ContextTypes
 from dotenv import load_dotenv
-from threading import Lock
+from tracker import create_crypto_compare_client, get_crypto_price
 
 # .env faylını yüklə
 load_dotenv()
@@ -28,6 +18,12 @@ crypto_compare_client = create_crypto_compare_client(os.getenv("CRYPTOCOMPARE_AP
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 ADMIN_ID = 1724281113  # Adminin Telegram ID-sini buraya yazın
+
+user_states = {}
+
+# Vəziyyətlər
+STATE_THRESHOLD = "threshold"  # Qiymət təyini vəziyyəti
+STATE_BROADCAST = "broadcast"  # Yayım vəziyyəti
 
 # Faylları idarəetmə funksiyaları
 def load_user_ids():
@@ -48,86 +44,81 @@ def initialize_user_file():
 
 initialize_user_file()
 
-# Global state üçün lock yaradılır
-lock = Lock()
-is_start_running = False
-
 async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    chat_id = update.effective_chat.id
+    # İstifadəçinin vəziyyətini broadcast vəziyyətinə gətir
+    user_states[chat_id] = STATE_BROADCAST
+    
     if update.effective_user.id != ADMIN_ID:
         await update.message.reply_text("Bu əmri yalnız admin istifadə edə bilər❌.")
         return
 
     # Broadcast rejimini aktiv edirik
-    await update.message.reply_text("İstifadəçilərə göndərmək istədiyiniz mesajı daxil edin:")
-    context.user_data['broadcasting'] = True  # Broadcast aktivləşdirildi
+    await update.message.reply_text("İstifadçilərə göndərmək istədiyiniz mesajı daxil edin:")
 
 # Broadcast mesajı işlədikdə bu funksiya aktiv olur
 async def handle_broadcast_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
+    chat_id = update.effective_chat.id
+
+    # Vəziyyəti yoxlayırıq
+    if user_states.get(chat_id) == STATE_BROADCAST:
         message = update.message.text
         user_ids = load_user_ids()
 
         # Növbə ilə mesaj göndəririk
+        if not user_ids:
+            await update.message.reply_text("Heç bir istifadəçiyə mesaj göndərilmədi, çünki istifadəçi tapılmadı.")
+            return
+
         for user_id in user_ids:
             try:
                 await context.bot.send_message(user_id, message)
+                logging.info(f"Mesaj {user_id} istifadəçisinə göndərildi.")
             except Exception as e:
                 logging.error(f"Mesaj göndərərkən xəta baş verdi: {e}")
 
         await update.message.reply_text("Mesaj bütün istifadəçilərə göndərildi.✅")
-        context.user_data['broadcasting'] = False  # Broadcast bitdi
+        user_states[chat_id] = None
     else:
-        await update.message.reply_text("Broadcast rejimi aktiv deyil. Əvvəlcə /broadcast əmri ilə başlatmalısınız.")
+        await update.message.reply_text("Əvvəlcə /broadcast komandasını istifadə edin.")
 
 # /start komandasını idarə edən funksiya
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    # Global lock ilə start funksiyasını sinxronlaşdırırıq
-    global is_start_running
-    with lock:  # Yalnız bir funksiya işləyəcək
-        if is_start_running:
-            await update.message.reply_text("Start funksiyası artıq çalışır!")
-            return
-        is_start_running = True
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    chat_id = update.effective_chat.id
+    # İstifadəçinin vəziyyətini threshold vəziyyətinə gətir
+    user_states[chat_id] = STATE_THRESHOLD
+    
+    user_id = update.effective_user.id
+    user_ids = load_user_ids()
 
-    try:
-        # Əgər broadcast rejimi aktivdirsə, start funksiyasını keçirik
-        if 'broadcasting' in context.user_data and context.user_data['broadcasting']:
-            return  # Əgər broadcast aktivdirsə, start funksiyasını icra etməmək
+    # İstifadəçi ID-sini yalnız bir dəfə əlavə edirik
+    if user_id not in user_ids:
+        user_ids.append(user_id)
+        save_user_ids(user_ids)  # Faylı avtomatik olaraq yeniləyirik
 
-        user_id = update.effective_user.id
-        user_ids = load_user_ids()
-
-        # İstifadəçi ID-sini yalnız bir dəfə əlavə edirik
-        if user_id not in user_ids:
-            user_ids.append(user_id)
-            save_user_ids(user_ids)  # Faylı avtomatik olaraq yeniləyirik
-
-        # Botu başlatmaq üçün istifadəçinin qarşısında seçimlər
-        keyboard = [
-            [InlineKeyboardButton("BTCUSDT", callback_data="BTCUSDT"),
-             InlineKeyboardButton("ETHUSDT", callback_data="ETHUSDT")],
-            [InlineKeyboardButton("BNBUSDT", callback_data="BNBUSDT"),
-             InlineKeyboardButton("XRPUSDT", callback_data="XRPUSDT")],
-            [InlineKeyboardButton("ADAUSDT", callback_data="ADAUSDT"),
-             InlineKeyboardButton("DOGEUSDT", callback_data="DOGEUSDT")],
-            [InlineKeyboardButton("SOLUSDT", callback_data="SOLUSDT"),
-             InlineKeyboardButton("XLMUSDT", callback_data="XLMUSDT")],
-            [InlineKeyboardButton("PEPEUSDT", callback_data="PEPEUSDT"),
-             InlineKeyboardButton("PENGUUSDT", callback_data="PENGUUSDT")],
-            [InlineKeyboardButton("VANAUSDT", callback_data="VANAUSDT"),
-             InlineKeyboardButton("MOVEUSDT", callback_data="MOVEUSDT")]
-        ]
-        reply_markup = InlineKeyboardMarkup(keyboard)
-        effective_message = update.effective_message
-        if effective_message:
-            await effective_message.reply_text(
-                "Xoş gəlmisiniz!😊 Hansı kripto valyutanı izləmək istəyirsiniz?🕵️‍♂️",
-                reply_markup=reply_markup
-            )
-            await asyncio.sleep(2)
-    finally:
-        with lock:
-            is_start_running = False  # Start funksiyası bitdi
+    # Botu başlatmaq üçün istifadəçinin qarşısında seçimlər
+    keyboard = [
+        [InlineKeyboardButton("BTCUSDT", callback_data="BTCUSDT"),
+         InlineKeyboardButton("ETHUSDT", callback_data="ETHUSDT")],
+        [InlineKeyboardButton("BNBUSDT", callback_data="BNBUSDT"),
+         InlineKeyboardButton("XRPUSDT", callback_data="XRPUSDT")],
+        [InlineKeyboardButton("ADAUSDT", callback_data="ADAUSDT"),
+         InlineKeyboardButton("DOGEUSDT", callback_data="DOGEUSDT")],
+        [InlineKeyboardButton("SOLUSDT", callback_data="SOLUSDT"),
+         InlineKeyboardButton("XLMUSDT", callback_data="XLMUSDT")],
+        [InlineKeyboardButton("PEPEUSDT", callback_data="PEPEUSDT"),
+         InlineKeyboardButton("PENGUUSDT", callback_data="PENGUUSDT")],
+        [InlineKeyboardButton("VANAUSDT", callback_data="VANAUSDT"),
+         InlineKeyboardButton("MOVEUSDT", callback_data="MOVEUSDT")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    effective_message = update.effective_message
+    if effective_message:
+        await effective_message.reply_text(
+            "Xoş gəlmisiniz!😊 Hansı kripto valyutanı izləmək istəyirsiniz?🕵️‍♂️",
+            reply_markup=reply_markup
+        )
+        await asyncio.sleep(2)
 
 # Qiymət izləmə funksiyası
 async def track_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -142,29 +133,33 @@ async def track_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(2)
 
 async def set_threshold(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if 'current_symbol' in context.user_data:
-        # tracking açarını yoxlayırıq və lazım olsa başlatırıq
-        if 'tracking' not in context.user_data:
+    chat_id = update.effective_chat.id
+
+    # Vəziyyəti yoxlayırıq
+    if user_states.get(chat_id) == STATE_THRESHOLD:
+        if 'current_symbol' in context.user_data:
             context.user_data['tracking'] = {}
 
-        symbol = context.user_data['current_symbol']
-        try:
-            threshold = float(update.message.text)
-            context.user_data['tracking'][symbol] = {'threshold': threshold}
-            keyboard = [
-                [InlineKeyboardButton("Yuxarı📈", callback_data="yuxari"),
-                 InlineKeyboardButton("Aşağı📉", callback_data="asagi")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(
-                f"{symbol} üçün qiymət səviyyəsi {threshold}$ olaraq təyin edildi.👌✔️ "
-                "Bildiriş üçün aşağıdakı seçimlərdən birini edin🔰:",
-                reply_markup=reply_markup
-            )
-        except ValueError:
-            await update.message.reply_text("Xahiş olunur düzgün mesajı daxil edin❌.")
-    else:
-        await update.message.reply_text("Əvvəlcə valyutanı seçin.💱⛔")
+            symbol = context.user_data['current_symbol']
+            try:
+                threshold = float(update.message.text)
+                context.user_data['tracking'][symbol] = {'threshold': threshold}
+                keyboard = [
+                    [InlineKeyboardButton("Yuxarı📈", callback_data="yuxari"),
+                    InlineKeyboardButton("Aşağı📉", callback_data="asagi")]
+                ]
+                reply_markup = InlineKeyboardMarkup(keyboard)
+                await update.message.reply_text(
+                    f"{symbol} üçün qiymət səviyyəsi {threshold}$ olaraq təyin edildi.👌✔️ "
+                    "Bildiriş üçün aşağıdakı seçimlərdən birini edin🔰:",
+                    reply_markup=reply_markup
+                )
+        
+            except ValueError:
+                await update.message.reply_text("Xahiş olunur düzgün mesajı daxil edin❌.")
+        else:
+            await update.message.reply_text("Əvvəlcə valyutanı seçin.💱⛔")
+        user_states[chat_id] = None
 
 async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
@@ -247,8 +242,12 @@ async def show_current_price(update: Update, context: ContextTypes.DEFAULT_TYPE)
     query = update.callback_query
     await query.answer()
     symbol = query.data.split("_")[1]
-    current_price = (get_crypto_price(crypto_compare_client, symbol))
-    await query.message.reply_text(f"{symbol} üçün hazırkı qiymət: {current_price}$💸")
+    current_price = get_crypto_price(crypto_compare_client, symbol)
+
+    # Qiymət formatlama
+    formatted_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
+    
+    await query.message.reply_text(f"{symbol} üçün hazırkı qiymət: {formatted_price}$💸")
        
         
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -271,10 +270,11 @@ async def check_price(context: ContextTypes.DEFAULT_TYPE):
     direction = job_data.get('direction')
 
     current_price = get_crypto_price(crypto_compare_client, symbol)
+    formated_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
     
     # Qiymət həddinə çatdıqda xəbərdarlıq göndərilir və sorğu dayandırılır
     if (direction == "yuxari" and float(current_price) >= threshold) or (direction == "asagi" and float(current_price) <= threshold):
-        await context.bot.send_message(chat_id, text=f"{symbol} qiyməti {str(current_price)}$ səviyyəsinə çatdı!📈🕵️‍♂️")
+        await context.bot.send_message(chat_id, text=f"{symbol} qiyməti {str(formated_price)}$ səviyyəsinə çatdı!📈🕵️‍♂️")
 
         # İzləməni dayandırmaq üçün izləmə məlumatını silirik
         if 'tracking' in context.job.data:
