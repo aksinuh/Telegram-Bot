@@ -8,3 +8,5 @@ venv/
 
 # Ignore user data files
 user_ids.json
+
+telegram_bot.db

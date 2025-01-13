@@ -154,5 +154,4 @@ async def check_price(context: ContextTypes.DEFAULT_TYPE):
         if 'tracking' in context.user_data:
             context.user_data['tracking'].pop(symbol, None)
 
-        # Təkrar işi dayandırırıq
         
