@@ -1,5 +1,7 @@
 import os
 import asyncio
+
+from sqlite import add_user, initialize_database
 from utils import load_user_ids,save_user_ids
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -12,13 +14,11 @@ crypto_compare_client = create_crypto_compare_client(os.getenv("CRYPTOCOMPARE_AP
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
-    user_id = update.effective_user.id
-    user_ids = load_user_ids()
+    chat_id = update.effective_user.id
+    name = update.effective_user.username
 
-    # İstifadəçi ID-sini yalnız bir dəfə əlavə edirik
-    if user_id not in user_ids:
-        user_ids.append(user_id)
-        save_user_ids(user_ids)  # Faylı avtomatik olaraq yeniləyirik
+    # İstifadəçini bazaya əlavə edin
+    add_user(chat_id, name)
 
     # Botu başlatmaq üçün istifadəçinin qarşısında seçimlər
     keyboard = [
