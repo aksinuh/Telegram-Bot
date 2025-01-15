@@ -151,7 +151,8 @@ async def check_price(context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(chat_id, text=f"{symbol} qiyməti {formated_price}$ səviyyəsinə çatdı!📈🕵️‍♂️")
         context.job.schedule_removal()
         # İzləmə məlumatını silirik
-        if 'tracking' in context.user_data:
-            context.user_data['tracking'].pop(symbol, None)
+        user_data = context.user_data or {}
+        if 'tracking' in user_data:
+            user_data['tracking'].pop(symbol, None)
 
         
