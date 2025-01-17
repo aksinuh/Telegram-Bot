@@ -39,6 +39,7 @@ def initialize_database():
 
         conn.commit()
 
+
 def add_user(chat_id, name):
     with get_db_connection() as conn:
         cursor = conn.cursor()
@@ -50,3 +51,11 @@ def add_user(chat_id, name):
             conn.commit()
         except sqlite3.IntegrityError:
             pass 
+        
+def get_admin_ids():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT chat_id FROM admins")
+        admin_ids = [row["chat_id"] for row in cursor.fetchall()]
+    return admin_ids
+    

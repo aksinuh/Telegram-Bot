@@ -2,6 +2,7 @@ import os
 import logging
 import json
 
+from sqlite import get_admin_ids
 from dotenv import load_dotenv
 from telegram import Update
 from handlers import start, track_price, direction_choice, handle_restart, set_threshold
@@ -24,7 +25,7 @@ load_dotenv()
 # Logging
 logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
-ADMIN_ID = 1724281113  # Adminin Telegram ID-sini buraya yazın
+ # Adminin Telegram ID-sini buraya yazın
 
 
 broadcast_messages = []
@@ -35,20 +36,12 @@ def initialize_user_file():
             json.dump([], f)
 
 initialize_user_file()
-
-
-async def broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
-        await update.message.reply_text("Bu əmri yalnız admin istifadə edə bilər❌.")
-        return
-
-    # Broadcast rejimini aktiv edirik
-    await update.message.reply_text("İstifadəçilərə göndərmək istədiyiniz mesajı daxil edin:")
     
 
 # Broadcast mesajı işlədikdə bu funksiya aktiv olur
 async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.effective_user.id != ADMIN_ID:
+    admin_ids = get_admin_ids()
+    if update.effective_user.id not in admin_ids:
         await update.message.reply_text("Bu əmri yalnız admin istifadə edə bilər❌.")
         return
     
