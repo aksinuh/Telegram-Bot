@@ -59,3 +59,9 @@ def get_admin_ids():
         admin_ids = [row["chat_id"] for row in cursor.fetchall()]
     return admin_ids
     
+def get_user_ids():
+    with get_db_connection()as conn:
+        cursor =conn.cursor()
+        cursor.execute("SELECT chat_id FROM users")
+        user_ids = [row["chat_id"] for row in cursor.fetchall()]
+    return user_ids
