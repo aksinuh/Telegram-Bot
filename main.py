@@ -2,7 +2,7 @@ import os
 import logging
 import json
 
-from sqlite import get_admin_ids, get_user_ids
+from sqlite import get_admin_ids, get_user_ids, add_message, delete_user
 from dotenv import load_dotenv
 from telegram import Update
 from handlers import start, track_price, direction_choice, handle_restart, set_threshold
@@ -54,15 +54,33 @@ async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 # Adminlərə aid broadcast mesajların göndərilməsi (istəyə bağlı)
 async def send_broadcast(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_ids = get_user_ids()  # İstifadəçilərin ID-lərini yüklə
+    admin_id = update.effective_user.id
+    user_ids = get_user_ids() # İstifadəçilərin ID-lərini yüklə
+    failed_users = [] # Xətaya səbəb olan istifadəçilər
+
+    
     for message in broadcast_messages:
         for user_id in user_ids:
             try:
                 await context.bot.send_message(chat_id=user_id, text=message)
+                
+                
             except Exception as e:
+                 # Əgər istifadəçi botu bloklayıbsa, ID-ni qeyd et
+                if "bot was blocked by the user" in str(e):
+                    failed_users.append(user_id)
+    
                 logging.error(f"Mesaj göndərərkən xəta baş verdi: {e}")
-
+                
+        add_message(admin_id, message)
         await update.message.reply_text("Mesaj bütün istifadəçilərə göndərildi.✅")
+        
+    if failed_users:
+        for chat_id in failed_users:
+            delete_user(chat_id)
+             
+        await update.message.reply_text(f"Bəzi istifadəçilər botu bloklayıb və siyahıdan silindi: {len(failed_users)} nəfər.❌")
+        
     broadcast_messages.clear()
 
 

@@ -6,7 +6,5 @@ __pycache__/
 # Ignore virtual environment
 venv/
 
-# Ignore user data files
-user_ids.json
-
+# Ignore user data
 telegram_bot.db

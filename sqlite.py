@@ -1,4 +1,5 @@
 import sqlite3
+import logging
 
 def get_db_connection():
     conn = sqlite3.connect("telegram_bot.db")  # SQLite faylı
@@ -65,3 +66,28 @@ def get_user_ids():
         cursor.execute("SELECT chat_id FROM users")
         user_ids = [row["chat_id"] for row in cursor.fetchall()]
     return user_ids
+
+def add_message(admin_id, message):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        try:
+            cursor.execute("""
+                INSERT INTO messages(admin_id, message)
+                VALUES (?, ?)          
+            """, (admin_id, message))
+            conn.commit()
+        except sqlite3.IntegrityError:
+            pass 
+        
+def delete_user(chat_id):
+    try:
+        with get_db_connection() as conn:
+            cursor = conn.cursor()
+            # Parametri tuple formatında göndərin
+            cursor.execute("""
+                DELETE FROM users WHERE chat_id = ?
+            """, (chat_id,))
+            conn.commit()
+            print(f"İstifadəçi silindi: {chat_id}")
+    except Exception as e:
+        logging.error(f"İstifadəçi silinərkən xəta baş verdi: {e}")
