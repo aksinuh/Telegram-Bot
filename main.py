@@ -2,7 +2,7 @@ import os
 import logging
 import json
 
-from sqlite import get_admin_ids, get_user_ids, add_message, delete_user
+from sqlite import get_admin_ids, get_user_ids, add_message, delete_user,get_all_cryptos
 from dotenv import load_dotenv
 from telegram import Update
 from handlers import start, track_price, direction_choice, handle_restart, set_threshold
@@ -83,6 +83,12 @@ def main():
         .post_init(lambda app: app.job_queue.start()) \
         .build()
 
+    # Verilənlər bazasından kripto valyutaların siyahısını çəkirik
+    cryptocurrencies = get_all_cryptos()
+
+    # Siyahıdan pattern yaratmaq
+    pattern = f"^({'|'.join(cryptocurrencies)})$"
+
     application.add_handler(CommandHandler("start", start))
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
@@ -90,7 +96,7 @@ def main():
     application.add_handler(CommandHandler("stop", stop_command))
     application.add_handler(CommandHandler("broadcast", broadcast_handler))  # /broadcast üçün handler
     application.add_handler(CommandHandler("send_broadcast", send_broadcast))
-    application.add_handler(CallbackQueryHandler(track_price, pattern="^(BTCUSDT|ETHUSDT|BNBUSDT|XRPUSDT|ADAUSDT|DOGEUSDT|SOLUSDT|PEPEUSDT|PENGUUSDT|VANAUSDT|MOVEUSDT|XLMUSDT)$"))
+    application.add_handler(CallbackQueryHandler(track_price, pattern=pattern))
     application.add_handler(CallbackQueryHandler(show_current_price, pattern="^current_"))
     application.add_handler(CallbackQueryHandler(direction_choice, pattern="^(yuxari|asagi)$"))
     application.add_handler(CallbackQueryHandler(handle_restart, pattern="^(start_again|end_tracking)$"))

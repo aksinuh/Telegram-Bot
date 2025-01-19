@@ -1,7 +1,7 @@
 import os
 import asyncio
 
-from sqlite import add_user, initialize_database
+from sqlite import add_user, initialize_database, get_all_cryptos
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -19,21 +19,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # İstifadəçini bazaya əlavə edin
     add_user(chat_id, name)
 
-    # Botu başlatmaq üçün istifadəçinin qarşısında seçimlər
-    keyboard = [
-        [InlineKeyboardButton("BTCUSDT", callback_data="BTCUSDT"),
-         InlineKeyboardButton("ETHUSDT", callback_data="ETHUSDT")],
-        [InlineKeyboardButton("BNBUSDT", callback_data="BNBUSDT"),
-         InlineKeyboardButton("XRPUSDT", callback_data="XRPUSDT")],
-        [InlineKeyboardButton("ADAUSDT", callback_data="ADAUSDT"),
-         InlineKeyboardButton("DOGEUSDT", callback_data="DOGEUSDT")],
-        [InlineKeyboardButton("SOLUSDT", callback_data="SOLUSDT"),
-         InlineKeyboardButton("XLMUSDT", callback_data="XLMUSDT")],
-        [InlineKeyboardButton("PEPEUSDT", callback_data="PEPEUSDT"),
-         InlineKeyboardButton("PENGUUSDT", callback_data="PENGUUSDT")],
-        [InlineKeyboardButton("VANAUSDT", callback_data="VANAUSDT"),
-         InlineKeyboardButton("MOVEUSDT", callback_data="MOVEUSDT")]
-    ]
+    cryptocurrencies = get_all_cryptos()
+
+    # Kripto valyutaların siyahısından düymələri yaradın
+    keyboard = []
+    for i in range(0, len(cryptocurrencies), 2):  # Hər sətirdə 2 düymə
+        keyboard.append([
+            InlineKeyboardButton(cryptocurrencies[i], callback_data=cryptocurrencies[i]),
+            InlineKeyboardButton(cryptocurrencies[i + 1], callback_data=cryptocurrencies[i + 1]) if i + 1 < len(cryptocurrencies) else None
+        ])
+
+    # Boş düymələri təmizləyin
+    keyboard = [row for row in keyboard if row[-1] is not None]
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
     effective_message = update.effective_message
     if effective_message:
