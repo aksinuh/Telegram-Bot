@@ -12,18 +12,6 @@ load_dotenv()
 crypto_compare_client = create_crypto_compare_client(os.getenv("CRYPTOCOMPARE_API_KEY"))
 
 
-def load_user_ids():
-    if os.path.exists("user_ids.json"):
-        with open("user_ids.json", "r") as f:
-            return json.load(f)
-    else:
-        return []
-
-def save_user_ids(user_ids):
-    with open("user_ids.json", "w") as f:
-        json.dump(user_ids, f)
-
-
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     tracking = context.user_data.get('tracking', {})
     if not tracking:

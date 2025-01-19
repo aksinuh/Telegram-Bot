@@ -2,7 +2,6 @@ import os
 import asyncio
 
 from sqlite import add_user, initialize_database
-from utils import load_user_ids,save_user_ids
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -123,18 +122,6 @@ async def handle_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     else:
         await query.message.reply_text("İzləmə tamamlandı.✔️ Uğurlar!✨")
         await asyncio.sleep(5)
-        
-async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    tracking = context.user_data.get('tracking', {})
-    if not tracking:
-        await update.message.reply_text("Hal-hazırda heç bir kriptovalyuta izlənmir.😴")
-    else:
-        msg = "Hazırda izlənən valyutalar🕵️‍♂️💸:\n"
-        for symbol, data in tracking.items():
-            threshold = data['threshold']
-            direction = data.get('direction', '-')
-            msg += f"{symbol} - Səviyyə: {threshold}$, Yön: {'Yuxarı📈' if direction == 'yuxari' else 'Aşağı📉'}\n"
-        await update.message.reply_text(msg)
         
 async def check_price(context: ContextTypes.DEFAULT_TYPE):
     job_data = context.job.data

@@ -9,8 +9,7 @@ from handlers import start, track_price, direction_choice, handle_restart, set_t
 
 from utils import (
     show_current_price, help_command, 
-    list_command, current, stop_command,
-    load_user_ids, save_user_ids
+    list_command, current, stop_command
     )
 
 from telegram.ext import (
@@ -30,13 +29,6 @@ logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 
 broadcast_messages = []
 
-def initialize_user_file():
-    if not os.path.exists("user_ids.json"):
-        with open("user_ids.json", "w") as f:
-            json.dump([], f)
-
-initialize_user_file()
-    
 
 # Broadcast mesajı işlədikdə bu funksiya aktiv olur
 async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):

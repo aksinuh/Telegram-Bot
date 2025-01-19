@@ -37,8 +37,44 @@ def initialize_database():
             FOREIGN KEY (admin_id) REFERENCES admins (id)
         )
         """)
+        
+        
+        # Kripto valyutalar cədvəli
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS cryptocurrencies (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE
+        )
+        """)
+        
+        # İstifadəçilərin baxış qeydləri
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_crypto_views (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            crypto TEXT,
+            crypto_price REAL,
+            viewed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+        """)
+        
+        # İstifadəçi izləmə cədvəli
+        cursor.execute("""
+        CREATE TABLE IF NOT EXISTS user_watchlist (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            crypto_id INTEGER,
+            target_price REAL,
+            direction TEXT CHECK(direction IN ('yuxarı', 'aşağı')),
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (crypto_id) REFERENCES cryptocurrencies (id)
+        )
+        """)
 
         conn.commit()
+        
+
 
 
 def add_user(chat_id, name):
@@ -91,3 +127,45 @@ def delete_user(chat_id):
             print(f"İstifadəçi silindi: {chat_id}")
     except Exception as e:
         logging.error(f"İstifadəçi silinərkən xəta baş verdi: {e}")
+        
+def get_all_cryptos():
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM cryptocurrencies")
+        return [row["name"] for row in cursor.fetchall()]
+    
+def log_crypto_view(user_id, crypto, crypto_price):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO user_crypto_views(user_id,crypto, crypto_price)
+        VALUES (?, ?, ?)              
+        """, (user_id, crypto, crypto_price))
+        conn.commit()
+        
+def add_to_watchlist(user_id, crypto_id, target_price, direction):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO user_watchlist(user_id, crypto_id, target_price, direction)
+        VALUES (?, ?, ?, ?)               
+        """, (user_id, crypto_id, target_price, direction))
+        conn.commit()
+        
+def get_user_watchlist(user_id):
+    query = """
+    SELECT 
+        cryptocurrencies.name AS crypto_name,
+        user_watchlist.target_price,
+        user_watchlist.direction
+    FROM user_watchlist
+    JOIN cryptocurrencies ON user_watchlist.crypto_id = cryptocurrencies.id
+    WHERE user_watchlist.user_id = ?
+    """
+
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute(query, (user_id,))
+        result = cursor.fetchall()
+
+    return result
