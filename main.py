@@ -98,7 +98,7 @@ def main():
     application.add_handler(CommandHandler("send_broadcast", send_broadcast))
     application.add_handler(CallbackQueryHandler(track_price, pattern=pattern))
     application.add_handler(CallbackQueryHandler(show_current_price, pattern="^current_"))
-    application.add_handler(CallbackQueryHandler(direction_choice, pattern="^(yuxari|asagi)$"))
+    application.add_handler(CallbackQueryHandler(direction_choice, pattern="^(yuxarı|aşağı)$"))
     application.add_handler(CallbackQueryHandler(handle_restart, pattern="^(start_again|end_tracking)$"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_threshold)) # Qiymət hədəfi təyini
 

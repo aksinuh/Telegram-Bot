@@ -1,7 +1,7 @@
 import os
 import asyncio
 
-from sqlite import add_user, initialize_database, get_all_cryptos
+from sqlite import add_user, initialize_database, get_all_cryptos,add_to_watchlist
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 
@@ -62,8 +62,8 @@ async def set_threshold(update: Update, context: ContextTypes.DEFAULT_TYPE):
             threshold = float(update.message.text)
             context.user_data['tracking'][symbol] = {'threshold': threshold}
             keyboard = [
-                [InlineKeyboardButton("Yuxarı📈", callback_data="yuxari"),
-                 InlineKeyboardButton("Aşağı📉", callback_data="asagi")]
+                [InlineKeyboardButton("Yuxarı📈", callback_data="yuxarı"),
+                 InlineKeyboardButton("Aşağı📉", callback_data="aşağı")]
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
             await update.message.reply_text(
@@ -88,6 +88,14 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             f"{symbol} üçün bildirişlər {threshold}$ səviyyəsinin '{'yuxarı📈' if direction == 'yuxari' else 'aşağı📉'}' keçməsi halında aktivdir.🔍📊"
         )
+        
+        # Verilənlər bazasına əlavə etmə
+        user_id = update.effective_user.id  # İstifadəçi ID-si
+        crypto_id = symbol  # Kripto valyutasının ID-si
+        target_price = threshold  # Təyin edilmiş qiymət
+        # Məlumatları verilənlər bazasına əlavə edirik
+        add_to_watchlist(user_id, crypto_id, target_price, direction)
+        
         await asyncio.sleep(2)
         
                 # İşin hər 10 saniyədə bir təkrarlanmasını təmin edirik
@@ -132,7 +140,7 @@ async def check_price(context: ContextTypes.DEFAULT_TYPE):
     formated_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
 
     # Qiymət həddinə çatdıqda xəbərdarlıq göndərilir və izləmə dayandırılır
-    if (direction == "yuxari" and float(current_price) >= threshold) or (direction == "asagi" and float(current_price) <= threshold):
+    if (direction == "yuxarı" and float(current_price) >= threshold) or (direction == "aşağı" and float(current_price) <= threshold):
         await context.bot.send_message(chat_id, text=f"{symbol} qiyməti {formated_price}$ səviyyəsinə çatdı!📈🕵️‍♂️")
         context.job.schedule_removal()
         # İzləmə məlumatını silirik
