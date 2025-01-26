@@ -1,5 +1,6 @@
 import sqlite3
 import logging
+import datetime
 
 def get_db_connection():
     conn = sqlite3.connect("telegram_bot.db")  # SQLite faylı
@@ -169,3 +170,39 @@ def get_user_watchlist(user_id):
         result = cursor.fetchall()
 
     return result
+
+def save_crypto_view(user_id, crypto, crypto_price):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        INSERT INTO user_crypto_views (user_id, crypto, crypto_price, viewed_at)
+        VALUES (?, ?, ?, ?)
+        """, (user_id, crypto, crypto_price, datetime.datetime.now()))
+        conn.commit()
+        
+def get_user_watchlist(user_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("""
+        SELECT id, crypto_id, target_price, direction
+        FROM user_watchlist
+        WHERE user_id = ?
+        """, (user_id,))
+        return cursor.fetchall()
+
+def delete_watchlist_entry(entry_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM user_watchlist WHERE id = ?", (entry_id,))
+        conn.commit()
+
+def get_crypto_symbol_by_id(crypto_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT name FROM cryptocurrencies WHERE id = ?", (crypto_id,))
+        result = cursor.fetchone()
+        if result:
+            return result[0]
+        else:
+            print(f"Xəta: Kriptovalyuta ID {crypto_id} tapılmadı.")
+            return None

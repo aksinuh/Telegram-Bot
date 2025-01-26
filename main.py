@@ -1,6 +1,8 @@
 import os
 import logging
 import json
+from telegram import Update
+from telegram.error import BadRequest, TimedOut
 
 from sqlite import get_admin_ids, get_user_ids, add_message, delete_user,get_all_cryptos
 from dotenv import load_dotenv
@@ -15,7 +17,7 @@ from utils import (
 from telegram.ext import (
     Application, CommandHandler,
     CallbackQueryHandler, MessageHandler,
-    filters, ContextTypes,
+    filters, ContextTypes, CallbackContext
 )
 
 # .env faylını yüklə
@@ -30,6 +32,24 @@ logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 broadcast_messages = []
 
 
+async def show_current_price(update: Update, context: CallbackContext):
+    try:
+        query = update.callback_query
+        # Callback query etibarlıdırsa cavab veririk
+        if not query.is_answered:
+            await query.answer(text="Məlumat yüklənir...", show_alert=True)
+        else:
+            print("Query artıq cavablandırılıb.")
+    except BadRequest as e:
+        print(f"Xəta: {e}. Callback query etibarsızdır.")
+        await update.callback_query.answer(text="Üzr istəyirik, gecikmə yaşanır. Zəhmət olmasa bir az gözləyin.")
+    except TimedOut as e:
+        print(f"Xəta: {e}. Cavab verilmədi.")
+        await update.callback_query.answer(text="İnternet bağlantınız zəifdir, zəhmət olmasa bir az gözləyin.")
+    except Exception as e:
+        print(f"Başqa bir xəta baş verdi: {e}")
+        await update.callback_query.answer(text="Bilinməyən bir xəta baş verdi. Zəhmət olmasa sonra yenidən cəhd edin.")
+        
 # Broadcast mesajı işlədikdə bu funksiya aktiv olur
 async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     admin_ids = get_admin_ids()
@@ -101,7 +121,7 @@ def main():
     application.add_handler(CallbackQueryHandler(direction_choice, pattern="^(yuxarı|aşağı)$"))
     application.add_handler(CallbackQueryHandler(handle_restart, pattern="^(start_again|end_tracking)$"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_threshold)) # Qiymət hədəfi təyini
-
+    application.add_handler(CallbackQueryHandler(show_current_price, pattern='your_callback_pattern'))
     application.run_polling()
 
 

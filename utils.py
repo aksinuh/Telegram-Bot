@@ -1,5 +1,6 @@
 import os
 import json
+from sqlite import get_all_cryptos, save_crypto_view
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from tracker import create_crypto_compare_client, get_crypto_price
@@ -25,20 +26,16 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text(msg)
         
 async def current(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    keyboard = [
-        [InlineKeyboardButton("BTCUSDT", callback_data="current_BTCUSDT"),
-         InlineKeyboardButton("ETHUSDT", callback_data="current_ETHUSDT")],
-        [InlineKeyboardButton("BNBUSDT", callback_data="current_BNBUSDT"),
-         InlineKeyboardButton("XRPUSDT", callback_data="current_XRPUSDT")],
-        [InlineKeyboardButton("ADAUSDT", callback_data="current_ADAUSDT"),
-         InlineKeyboardButton("DOGEUSDT", callback_data="current_DOGEUSDT")],
-        [InlineKeyboardButton("SOLUSDT", callback_data="current_SOLUSDT"),
-         InlineKeyboardButton("XLMUSDT", callback_data="current_XLMUSDT")],
-        [InlineKeyboardButton("PEPEUSDT", callback_data="current_PEPEUSDT"),
-         InlineKeyboardButton("PENGUUSDT", callback_data="current_PENGUUSDT")],
-        [InlineKeyboardButton("VANAUSDT", callback_data="current_VANAUSDT"),
-         InlineKeyboardButton("MOVEUSDT", callback_data="current_MOVEUSDT")]
-    ]
+    cryptos = get_all_cryptos()
+    
+    # Dinamik olaraq düymələr yarat
+    keyboard = []
+    for i in range(0, len(cryptos), 2):  # Hər sətirdə 2 düymə
+        row = [InlineKeyboardButton(cryptos[i], callback_data=f"current_{cryptos[i]}")]
+        if i + 1 < len(cryptos):  # İkinci düymənin mövcudluğunu yoxla
+            row.append(InlineKeyboardButton(cryptos[i + 1], callback_data=f"current_{cryptos[i + 1]}"))
+        keyboard.append(row)
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Hansı kriptovalyutanın qiymətini görmək istəyirsiniz?👁️", reply_markup=reply_markup)
        
@@ -51,6 +48,9 @@ async def show_current_price(update: Update, context: ContextTypes.DEFAULT_TYPE)
 
     # Qiymət formatlama
     formatted_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
+    
+    user_id = query.from_user.id
+    save_crypto_view(user_id, symbol, current_price)
     
     await query.message.reply_text(f"{symbol} üçün hazırkı qiymət: {formatted_price}$💸")
        
