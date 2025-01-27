@@ -11,7 +11,7 @@ from handlers import start, track_price, direction_choice, handle_restart, set_t
 
 from utils import (
     show_current_price, help_command, 
-    list_command, current, stop_command
+    list_command, current, delete_command,handle_delete
     )
 
 from telegram.ext import (
@@ -32,7 +32,7 @@ logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
 broadcast_messages = []
 
 
-async def show_current_price(update: Update, context: CallbackContext):
+async def restart(update: Update, context: CallbackContext):
     try:
         query = update.callback_query
         # Callback query etibarlıdırsa cavab veririk
@@ -113,15 +113,16 @@ def main():
     application.add_handler(CommandHandler("help", help_command))
     application.add_handler(CommandHandler("list", list_command))
     application.add_handler(CommandHandler("current", current))
-    application.add_handler(CommandHandler("stop", stop_command))
+    application.add_handler(CommandHandler("stop", delete_command))
     application.add_handler(CommandHandler("broadcast", broadcast_handler))  # /broadcast üçün handler
     application.add_handler(CommandHandler("send_broadcast", send_broadcast))
     application.add_handler(CallbackQueryHandler(track_price, pattern=pattern))
+    application.add_handler(CallbackQueryHandler(handle_delete, pattern="^delete_"))
     application.add_handler(CallbackQueryHandler(show_current_price, pattern="^current_"))
     application.add_handler(CallbackQueryHandler(direction_choice, pattern="^(yuxarı|aşağı)$"))
     application.add_handler(CallbackQueryHandler(handle_restart, pattern="^(start_again|end_tracking)$"))
     application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, set_threshold)) # Qiymət hədəfi təyini
-    application.add_handler(CallbackQueryHandler(show_current_price, pattern='your_callback_pattern'))
+    application.add_handler(CallbackQueryHandler(restart, pattern='your_callback_pattern'))
     application.run_polling()
 
 

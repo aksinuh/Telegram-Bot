@@ -189,6 +189,7 @@ def get_user_watchlist(user_id):
         WHERE user_id = ?
         """, (user_id,))
         return cursor.fetchall()
+        
 
 def delete_watchlist_entry(entry_id):
     with get_db_connection() as conn:
@@ -206,3 +207,17 @@ def get_crypto_symbol_by_id(crypto_id):
         else:
             print(f"Xəta: Kriptovalyuta ID {crypto_id} tapılmadı.")
             return None
+        
+def delete_user_watchlist(user_id, crypto_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM user_watchlist WHERE user_id = ? AND crypto_id = ?", (user_id, crypto_id))
+        conn.commit()
+
+        
+def get_user_watchlist_2(user_id):
+    with get_db_connection() as conn:
+        cursor = conn.cursor()
+        cursor.execute("SELECT crypto_id FROM user_watchlist WHERE user_id = ?", (user_id,))
+        watchlist = cursor.fetchall()
+        return [crypto[0] for crypto in watchlist]

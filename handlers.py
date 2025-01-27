@@ -132,14 +132,14 @@ async def check_price(context: ContextTypes.DEFAULT_TYPE):
     watchlist = get_user_watchlist(user_id)
 
     for entry in watchlist:
-        watchlist_id, crypto_id, target_price, direction = entry
+        watchlist_id, crypto_id, target_price, directions = entry
        
         current_price = get_crypto_price(crypto_compare_client, crypto_id)
         formated_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
  
     # Qiymət həddinə çatdıqda xəbərdarlıq göndərilir və izləmə dayandırılır
-    if (direction == "yuxarı" and float(current_price) >= target_price) or \
-        (direction == "aşağı" and float(current_price) <= target_price):
+    if (directions == "yuxarı" and float(current_price) >= target_price) or \
+        (directions == "aşağı" and float(current_price) <= target_price):
             
         await context.bot.send_message(chat_id=user_id, text=f"{crypto_id} qiyməti {formated_price}$ səviyyəsinə çatdı!📈🕵️‍♂️")
         
