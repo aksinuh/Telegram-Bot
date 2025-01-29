@@ -23,6 +23,8 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # İstifadəçini bazaya əlavə edin
     add_user(chat_id, name)
 
+    context.user_data.clear()
+    
     cryptos = get_all_cryptos()
     
     # Dinamik olaraq düymələr yarat
@@ -52,28 +54,36 @@ async def track_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await asyncio.sleep(2)
 
 async def set_threshold(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if 'current_symbol' in context.user_data:
-        context.user_data['tracking'] = {}
-
-        symbol = context.user_data['current_symbol']
-        try:
-            threshold = float(update.message.text)
-            context.user_data['tracking'][symbol] = {'threshold': threshold}
-            keyboard = [
-                [InlineKeyboardButton("Yuxarı📈", callback_data="yuxarı"),
-                 InlineKeyboardButton("Aşağı📉", callback_data="aşağı")]
-            ]
-            reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text(
-                f"{symbol} üçün qiymət səviyyəsi {threshold}$ olaraq təyin edildi.👌✔️ "
-                "Bildiriş üçün aşağıdakı seçimlərdən birini edin🔰:",
-                reply_markup=reply_markup
-            )
-        except ValueError:
-            await update.message.reply_text("Xahiş olunur düzgün mesajı daxil edin❌.")
-    else:
+    if 'current_symbol' not in context.user_data:
         await update.message.reply_text("Əvvəlcə valyutanı seçin.💱⛔")
+        return  # Burada dayandırırıq ki, səhv işləməsin.
 
+    symbol = context.user_data['current_symbol']
+
+    # Əgər artıq threshold təyin edilibsə, yenidən daxil edilməsinə icazə vermirik
+    if 'tracking' in context.user_data and symbol in context.user_data['tracking']:
+        await update.message.reply_text(
+            f"{symbol} üçün artıq qiymət və yön təyin edilib. Yenidən başlamaq istəyirsinizsə, /start əmrini yazın.❗"
+        )
+        return
+
+    try:
+        threshold = float(update.message.text)
+        context.user_data.setdefault('tracking', {})[symbol] = {'threshold': threshold}
+
+        keyboard = [
+            [InlineKeyboardButton("Yuxarı📈", callback_data="yuxarı"),
+             InlineKeyboardButton("Aşağı📉", callback_data="aşağı")]
+        ]
+        reply_markup = InlineKeyboardMarkup(keyboard)
+        await update.message.reply_text(
+            f"{symbol} üçün qiymət səviyyəsi {threshold}$ olaraq təyin edildi.👌✔️ "
+            "Bildiriş üçün aşağıdakı seçimlərdən birini edin🔰:",
+            reply_markup=reply_markup
+        )
+    except ValueError:
+        await update.message.reply_text("Xahiş olunur düzgün rəqəm daxil edin❌.")
+        
 async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
@@ -86,6 +96,7 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.message.reply_text(
             f"{symbol} üçün bildirişlər {threshold}$ səviyyəsinin '{'yuxarı📈' if direction == 'yuxari' else 'aşağı📉'}' keçməsi halında aktivdir.🔍📊"
         )
+        context.user_data.clear()
         
         user_id = update.effective_user.id  # İstifadəçi ID-si
         crypto_id = symbol  # Kripto valyutasının ID-si
@@ -130,6 +141,9 @@ async def handle_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def check_price(context: ContextTypes.DEFAULT_TYPE):
     user_id = context.job.data.get("user_id")
     watchlist = get_user_watchlist(user_id)
+    
+    if not watchlist:
+        return
 
     for entry in watchlist:
         watchlist_id, crypto_id, target_price, directions = entry
@@ -138,11 +152,13 @@ async def check_price(context: ContextTypes.DEFAULT_TYPE):
         formated_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
  
     # Qiymət həddinə çatdıqda xəbərdarlıq göndərilir və izləmə dayandırılır
-    if (directions == "yuxarı" and float(current_price) >= target_price) or \
-        (directions == "aşağı" and float(current_price) <= target_price):
+        if (directions == "yuxarı" and float(current_price) >= target_price) or \
+            (directions == "aşağı" and float(current_price) <= target_price):
             
-        await context.bot.send_message(chat_id=user_id, text=f"{crypto_id} qiyməti {formated_price}$ səviyyəsinə çatdı!📈🕵️‍♂️")
+            await context.bot.send_message(chat_id=user_id, text=f"{crypto_id} qiyməti {formated_price}$ səviyyəsinə çatdı!📈🕵️‍♂️")
         
-        delete_watchlist_entry(watchlist_id)
+            delete_watchlist_entry(watchlist_id)
 
+            context.job.schedule_removal()
+            break
         

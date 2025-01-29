@@ -1,6 +1,6 @@
 import os
 import json
-from sqlite import get_all_cryptos, save_crypto_view, get_user_watchlist, get_user_watchlist_2, delete_user_watchlist
+from sqlite import get_all_cryptos, save_crypto_view, get_user_watchlist, get_user_watchlist_2, delete_user_watchlist,delete_all_user_watchlist
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
 from tracker import create_crypto_compare_client, get_crypto_price
@@ -86,11 +86,11 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
          InlineKeyboardButton(watchlist[i + 1], callback_data=f"delete_{watchlist[i + 1]}")]
         for i in range(0, len(watchlist) - 1, 2)
     ]
-
     # Tək sayda valyuta varsa, sonuncu düyməni əlavə edin
     if len(watchlist) % 2 != 0:
         keyboard.append([InlineKeyboardButton(watchlist[-1], callback_data=f"delete_{watchlist[-1]}")])
-
+    keyboard.append([InlineKeyboardButton("Hamısını Sil 🗑️", callback_data="delete_all")])
+    
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("İzlədiyiniz valyutalar aşağıdakılardır. Silmək istədiyinizi seçin:🗑️", reply_markup=reply_markup)
 
@@ -98,13 +98,15 @@ async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-
     data = query.data
-    if data.startswith("delete_"):
+    user_id = update.effective_user.id
+    
+    if data == "delete_all":    
+        delete_all_user_watchlist(user_id)
+        await query.message.reply_text("Bütün izləmələriniz silindi.🗑️")
+        
+    elif data.startswith("delete_"):
         crypto_id = data.replace("delete_", "")
-        user_id = update.effective_user.id
-
         # Verilənlər bazasından valyutanı sil
         delete_user_watchlist(user_id, crypto_id)
-
         await query.message.reply_text(f"{crypto_id} izləmə siyahısından silindi.✔️")
