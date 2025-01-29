@@ -39,13 +39,15 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     effective_message = update.effective_message
     if effective_message:
         await effective_message.reply_text("Xoş gəlmisiniz!😊 Hansı kripto valyutanı izləmək istəyirsiniz?🕵️‍♂️",reply_markup=reply_markup)
-        await asyncio.sleep(2)
 
 # Qiymət izləmə funksiyası
 async def track_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     symbol = query.data
+    
+    await query.message.delete()
+    
     if 'tracking' not in context.user_data:
         context.user_data['tracking'] = {}
 
@@ -63,7 +65,7 @@ async def set_threshold(update: Update, context: ContextTypes.DEFAULT_TYPE):
     # Əgər artıq threshold təyin edilibsə, yenidən daxil edilməsinə icazə vermirik
     if 'tracking' in context.user_data and symbol in context.user_data['tracking']:
         await update.message.reply_text(
-            f"{symbol} üçün artıq qiymət və yön təyin edilib. Yenidən başlamaq istəyirsinizsə, /start əmrini yazın.❗"
+            f"{symbol} üçün artıq qiymət təyin edilib. Yenidən başlamaq istəyirsinizsə, /start əmrini yazın.❗"
         )
         return
 
@@ -89,7 +91,8 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     direction = query.data
     symbol = context.user_data.get('current_symbol')
-
+    await query.message.delete()
+    
     if symbol and symbol in context.user_data['tracking']:
         context.user_data['tracking'][symbol]['direction'] = direction
         threshold = context.user_data['tracking'][symbol]['threshold']
@@ -132,10 +135,12 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def handle_restart(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+    await query.message.delete()
+    
     if query.data == "start_again":
         await start(update, context)
     else:
-        await query.message.reply_text("İzləmə tamamlandı.✔️ Uğurlar!✨")
+        await query.message.reply_text("İzləmə başladı...✅ Uğurlar!✨")
         await asyncio.sleep(6)
         
 async def check_price(context: ContextTypes.DEFAULT_TYPE):

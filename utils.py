@@ -25,7 +25,7 @@ async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         for row in tracking:
             watchlist_id, crypto_name, target_price, direction = row
             direction_text = 'Yuxarı📈' if direction == 'yuxarı' else 'Aşağı📉'
-            msg += f"{crypto_name} - Səviyyə: {target_price}$, Yön: {direction_text}\n_____________________________________\n"
+            msg += f"{crypto_name} - Səviyyə: {target_price}$, Yön: {direction_text}\n___________________________\n"
         await update.message.reply_text(msg)
        
         
@@ -49,7 +49,6 @@ async def show_current_price(update: Update, context: ContextTypes.DEFAULT_TYPE)
     await query.answer()
     symbol = query.data.split("_")[1]
     current_price = get_crypto_price(crypto_compare_client, symbol)
-
     # Qiymət formatlama
     formatted_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
     
@@ -100,6 +99,7 @@ async def handle_delete(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await query.answer()
     data = query.data
     user_id = update.effective_user.id
+    await query.message.delete()
     
     if data == "delete_all":    
         delete_all_user_watchlist(user_id)
