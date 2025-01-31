@@ -1,5 +1,6 @@
 .env
 
+bot_errors.log
 # Ignore Python bytecode and cache
 __pycache__/
 

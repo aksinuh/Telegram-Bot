@@ -1,5 +1,7 @@
 import os
 import json
+import time
+import logging
 from sqlite import get_all_cryptos, save_crypto_view, get_user_watchlist, get_user_watchlist_2, delete_user_watchlist,delete_all_user_watchlist
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ContextTypes
@@ -14,9 +16,18 @@ crypto_compare_client = create_crypto_compare_client(os.getenv("CRYPTOCOMPARE_AP
 
 
 async def list_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    user_id = update.effective_user.id  # Telegram istifadəçi ID-sini əldə edirik
+    user_id = update.effective_user.id 
+    query = update.callback_query
     # Verilənlər bazasından məlumatları alırıq
     tracking = get_user_watchlist(user_id)
+    
+    # Əgər istifadəçi çox tez-tez düyməyə basırsa, cavab verməyək
+    last_request = context.user_data.get("last_request", 0)
+    if time.time() - last_request < 2:  # 2 saniyəlik məhdudiyyət
+        await query.answer("Çox tez düyməyə basdınız! Bir az gözləyin.⏳", show_alert=True)
+        return
+    
+    context.user_data["last_request"] = time.time()  # Yeni vaxtı qeyd edirik
     
     if not tracking:
         await update.message.reply_text("Hal-hazırda heç bir kriptovalyuta izlənmir.😴")
@@ -42,20 +53,35 @@ async def current(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Hansı kriptovalyutanın qiymətini görmək istəyirsiniz?👁️", reply_markup=reply_markup)
+      
        
-# Seçilmiş valyutanın hazırkı qiymətini göstər
 async def show_current_price(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
-    symbol = query.data.split("_")[1]
-    current_price = get_crypto_price(crypto_compare_client, symbol)
-    # Qiymət formatlama
-    formatted_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
-    
-    user_id = query.from_user.id
-    save_crypto_view(user_id, symbol, current_price)
-    
-    await query.message.reply_text(f"{symbol} üçün hazırkı qiymət: {formatted_price}$💸")
+
+    try:
+        symbol = query.data.split("_")[1]  # Seçilmiş valyutanın simvolunu alın
+        current_price = get_crypto_price(crypto_compare_client, symbol)  # Qiyməti alın
+
+        # Əgər qiymət None-dursa, xəta mesajı göndərin
+        if current_price is None:
+            await query.message.reply_text(f"{symbol} üçün qiymət tapılmadı.😕 Zəhmət olmasa sonra yenidən cəhd edin.😴")
+            return
+
+        # Qiyməti formatlayın
+        formatted_price = f"{current_price:.8f}".rstrip('0').rstrip('.')
+        
+        # İstifadəçi məlumatlarını saxlayın
+        user_id = query.from_user.id
+        save_crypto_view(user_id, symbol, current_price)
+        
+        # İstifadəçiyə qiyməti göndərin
+        await query.message.reply_text(f"{symbol} üçün hazırkı qiymət: {formatted_price}$💸")
+
+    except Exception as e:
+        # Gözlənilməz xətalar üçün ümumi xəta idarəetmə
+        logging.error(f"Xəta baş verdi: {e}")
+        await query.message.reply_text("Üzr istəyirik, məlumat alınarkən xəta baş verdi.🆘 Zəhmət olmasa sonra yenidən cəhd edin.♻️")
        
         
 async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -73,7 +99,7 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
 # /shut down komandası: Hazırda izlənən valyutaları dayandır
 async def delete_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
-    watchlist = get_user_watchlist_2(user_id)
+    watchlist = list(set(get_user_watchlist_2(user_id)))
 
     if not watchlist:
         await update.message.reply_text("Hal-hazırda izlədiyiniz heç bir valyuta yoxdur.💱⛔")

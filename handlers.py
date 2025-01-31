@@ -111,7 +111,7 @@ async def direction_choice(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
                 # İşin hər 10 saniyədə bir təkrarlanmasını təmin edirik
         context.job_queue.run_repeating(
-            check_price, interval=10,  # 10 saniyə aralıqla sorğu göndəriləcək
+            check_price, interval=150,  # 10 saniyə aralıqla sorğu göndəriləcək
             first=0,  # dərhal başlasın
             data={
                 'user_id': update.effective_user.id,

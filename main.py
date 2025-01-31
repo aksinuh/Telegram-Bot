@@ -1,18 +1,12 @@
 import os
 import logging
-import json
 from telegram import Update
 from telegram.error import BadRequest, TimedOut
 
-from sqlite import get_admin_ids, get_user_ids, add_message, delete_user,get_all_cryptos
 from dotenv import load_dotenv
-from telegram import Update
+from sqlite import get_admin_ids, get_user_ids, add_message, delete_user,get_all_cryptos
 from handlers import start, track_price, direction_choice, handle_restart, set_threshold
-
-from utils import (
-    show_current_price, help_command, 
-    list_command, current, delete_command,handle_delete
-    )
+from utils import show_current_price, help_command, list_command, current, delete_command,handle_delete
 
 from telegram.ext import (
     Application, CommandHandler,
@@ -24,10 +18,7 @@ from telegram.ext import (
 load_dotenv()
 
 # Logging
-logging.basicConfig(format="%(asctime)s - %(message)s", level=logging.INFO)
-
- # Adminin Telegram ID-sini buraya yazın
-
+logging.basicConfig(level=logging.INFO, filename="bot_errors.log", format="%(asctime)s - %(levelname)s - %(message)s")
 
 broadcast_messages = []
 
@@ -35,20 +26,27 @@ broadcast_messages = []
 async def restart(update: Update, context: CallbackContext):
     try:
         query = update.callback_query
+        
+        error = context.error
+        if isinstance(error,BadRequest) and "Query is too old" in str(error):
+            await update.callback_query.message.reply_text("Sorğunun vaxtı bitib. Zəhmət olmasa yenidən cəhd edin.")
+        else:
+            logging.error(f"Xəta baş verdi: {error}")
         # Callback query etibarlıdırsa cavab veririk
         if not query.is_answered:
             await query.answer(text="Məlumat yüklənir...", show_alert=True)
         else:
-            print("Query artıq cavablandırılıb.")
+            logging.warning("Query artıq cavablandırılıb.")
+            await query.answer(text="Bu əməliyyat artıq tamamlanıb. Zəhmət olmasa yenidən cəhd edin.")
     except BadRequest as e:
-        print(f"Xəta: {e}. Callback query etibarsızdır.")
-        await update.callback_query.answer(text="Üzr istəyirik, gecikmə yaşanır. Zəhmət olmasa bir az gözləyin.")
+        logging.error(f"BadRequest xətası: {e}")
+        await query.answer(text="Üzr istəyirik, bu əməliyyat artıq tamamlanıb. Zəhmət olmasa yenidən cəhd edin.")
     except TimedOut as e:
-        print(f"Xəta: {e}. Cavab verilmədi.")
-        await update.callback_query.answer(text="İnternet bağlantınız zəifdir, zəhmət olmasa bir az gözləyin.")
+        logging.error(f"TimedOut xətası: {e}")
+        await query.answer(text="Bağlantı zaman aşımına uğradı. Zəhmət olmasa internet bağlantınızı yoxlayın və yenidən cəhd edin.")
     except Exception as e:
-        print(f"Başqa bir xəta baş verdi: {e}")
-        await update.callback_query.answer(text="Bilinməyən bir xəta baş verdi. Zəhmət olmasa sonra yenidən cəhd edin.")
+        logging.error(f"Gözlənilməz xəta: {e}")
+        await query.answer(text="Bilinməyən bir xəta baş verdi. Zəhmət olmasa sonra yenidən cəhd edin.")
         
 # Broadcast mesajı işlədikdə bu funksiya aktiv olur
 async def broadcast_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
