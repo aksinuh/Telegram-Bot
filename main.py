@@ -4,7 +4,7 @@ from telegram import Update
 from telegram.error import BadRequest, TimedOut
 
 from dotenv import load_dotenv
-from sqlite import get_admin_ids, get_user_ids, add_message, delete_user,get_all_cryptos
+from sqlite import get_admin_ids, get_user_ids, add_message, delete_user,get_all_cryptos, initialize_database
 from handlers import start, track_price, direction_choice, handle_restart, set_threshold
 from utils import show_current_price, help_command, list_command, current, delete_command,handle_delete
 
@@ -101,6 +101,7 @@ def main():
         .post_init(lambda app: app.job_queue.start()) \
         .build()
 
+    initialize_database()
     # Verilənlər bazasından kripto valyutaların siyahısını çəkirik
     cryptocurrencies = get_all_cryptos()
 
